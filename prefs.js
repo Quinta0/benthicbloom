@@ -6,15 +6,17 @@ import Gdk from 'gi://Gdk';
 import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import {SettingsKey} from './lib/settingsKeys.js';
+import {loadGstreamerModules, GSTREAMER_INSTALL_HINT} from './lib/gstreamerAvailability.js';
 
 export default class BenthicBloomPreferences extends ExtensionPreferences {
-    fillPreferencesWindow(window) {
+    async fillPreferencesWindow(window) {
         const settings = this.getSettings();
+        const gstreamerError = await loadGstreamerModules().then(() => null, e => e.message ?? String(e));
 
         window.set_default_size(640, 720);
         window.add(this._buildGeneralPage(settings));
         window.add(this._buildRotationPage(settings));
-        window.add(this._buildLiveWallpaperPage(settings));
+        window.add(this._buildLiveWallpaperPage(settings, gstreamerError));
         window.add(this._buildOledPage(settings));
         window.add(this._buildAboutPage());
     }
@@ -170,8 +172,20 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
 
     // --- Live wallpaper page --------------------------------------------
 
-    _buildLiveWallpaperPage(settings) {
+    _buildLiveWallpaperPage(settings, gstreamerError) {
         const page = new Adw.PreferencesPage({title: _('Live Wallpaper'), icon_name: 'video-x-generic-symbolic'});
+
+        if (gstreamerError) {
+            const warningGroup = new Adw.PreferencesGroup();
+            const warningRow = new Adw.ActionRow({
+                title: _('GStreamer Not Found'),
+                subtitle: `${_('Live wallpapers will stay disabled until this is fixed:')} ${gstreamerError}\n\n${GSTREAMER_INSTALL_HINT}`,
+                css_classes: ['warning'],
+            });
+            warningRow.subtitle_lines = 0;
+            warningGroup.add(warningRow);
+            page.add(warningGroup);
+        }
 
         const group = new Adw.PreferencesGroup({
             title: _('Video Wallpaper'),
@@ -221,17 +235,19 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
         fileRow.add_suffix(chooseButton);
         group.add(fileRow);
 
-        group.add(this._switchRow(
+        const muteRow = this._switchRow(
             settings, SettingsKey.LIVE_WALLPAPER_MUTED,
-            _('Mute Audio'), _('Play video wallpapers without sound')));
-        group.add(this._spinRow(
+            _('Mute Audio'), _('Play video wallpapers without sound'));
+        group.add(muteRow);
+        const rateRow = this._spinRow(
             {
                 title: _('Playback Speed'),
                 subtitle: _('Multiplier, e.g. 0.5 for half speed, 2.0 for double speed'),
                 lower: 0.1, upper: 4.0, step: 0.1, page: 0.5, digits: 1,
             },
             () => settings.get_double(SettingsKey.LIVE_WALLPAPER_PLAYBACK_RATE),
-            value => settings.set_double(SettingsKey.LIVE_WALLPAPER_PLAYBACK_RATE, value)));
+            value => settings.set_double(SettingsKey.LIVE_WALLPAPER_PLAYBACK_RATE, value));
+        group.add(rateRow);
 
         const powerGroup = new Adw.PreferencesGroup({title: _('Power Saving')});
         page.add(powerGroup);
@@ -241,6 +257,16 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
         powerGroup.add(this._switchRow(
             settings, SettingsKey.LIVE_WALLPAPER_PAUSE_WHEN_FULLSCREEN,
             _('Pause When Fullscreen'), _('Stop video playback while a window is fullscreen')));
+
+        // The enable switch itself stays usable so the setting can be
+        // prepared ahead of time, but everything that only matters once
+        // GStreamer is actually driving playback is greyed out.
+        if (gstreamerError) {
+            fileRow.sensitive = false;
+            muteRow.sensitive = false;
+            rateRow.sensitive = false;
+            powerGroup.sensitive = false;
+        }
 
         return page;
     }
