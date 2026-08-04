@@ -1,0 +1,11 @@
+{
+    "uuid": "benthicbloom@quinta0.github.io",
+    "name": "BenthicBloom",
+    "description": "Automatically rotates your wallpaper from folders you choose, supports looping video live wallpapers, and includes built-in pixel-shifting and idle-dimming to protect OLED displays from burn-in.",
+    "shell-version": ["50"],
+    "url": "https://github.com/quinta0/benthicbloom",
+    "settings-schema": "org.gnome.shell.extensions.benthicbloom",
+    "gettext-domain": "benthicbloom",
+    "version": 1,
+    "version-name": "1.0.0"
+}

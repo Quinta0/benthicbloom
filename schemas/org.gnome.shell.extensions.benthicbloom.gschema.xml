@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="benthicbloom">
+
+  <schema id="org.gnome.shell.extensions.benthicbloom" path="/org/gnome/shell/extensions/benthicbloom/">
+
+    <key name="show-indicator" type="b">
+      <default>true</default>
+      <summary>Show panel indicator</summary>
+      <description>Whether to show the BenthicBloom icon in the top panel.</description>
+    </key>
+
+    <key name="debug-logging" type="b">
+      <default>false</default>
+      <summary>Enable debug logging</summary>
+      <description>Print verbose debug information to the GNOME Shell log (journalctl).</description>
+    </key>
+
+    <key name="wallpaper-folders" type="as">
+      <default>[]</default>
+      <summary>Wallpaper source folders</summary>
+      <description>List of folder paths scanned for wallpaper images.</description>
+    </key>
+
+    <key name="apply-to-lock-screen" type="b">
+      <default>true</default>
+      <summary>Apply wallpaper to lock screen</summary>
+      <description>Whether the rotated wallpaper is also applied to the lock screen background.</description>
+    </key>
+
+    <key name="rotation-enabled" type="b">
+      <default>false</default>
+      <summary>Enable automatic rotation</summary>
+      <description>Whether wallpapers are automatically rotated on a timer.</description>
+    </key>
+
+    <key name="rotation-interval-seconds" type="u">
+      <default>600</default>
+      <summary>Rotation interval</summary>
+      <description>Number of seconds between automatic wallpaper changes.</description>
+    </key>
+
+    <key name="rotation-mode" type="s">
+      <choices>
+        <choice value="sequential"/>
+        <choice value="shuffle"/>
+      </choices>
+      <default>"shuffle"</default>
+      <summary>Rotation order</summary>
+      <description>Whether wallpapers are shown sequentially or in random (shuffle) order.</description>
+    </key>
+
+    <key name="current-index" type="i">
+      <default>-1</default>
+      <summary>Current wallpaper index</summary>
+      <description>Internal state tracking the currently displayed wallpaper in sequential mode.</description>
+    </key>
+
+    <key name="transition-enabled" type="b">
+      <default>true</default>
+      <summary>Enable crossfade transition</summary>
+      <description>Whether wallpaper changes fade smoothly instead of switching instantly.</description>
+    </key>
+
+    <key name="transition-duration-ms" type="u">
+      <default>1200</default>
+      <summary>Transition duration</summary>
+      <description>Duration, in milliseconds, of the crossfade animation between wallpapers.</description>
+    </key>
+
+    <key name="live-wallpaper-enabled" type="b">
+      <default>false</default>
+      <summary>Enable live wallpaper</summary>
+      <description>Whether a video or animated GIF is played as an animated desktop background instead of a static image.</description>
+    </key>
+
+    <key name="live-wallpaper-path" type="s">
+      <default>""</default>
+      <summary>Live wallpaper media file</summary>
+      <description>Path to the video or animated GIF file used as the live wallpaper.</description>
+    </key>
+
+    <key name="live-wallpaper-folders" type="as">
+      <default>[]</default>
+      <summary>Live wallpaper source folders</summary>
+      <description>List of folder paths scanned for videos and animated GIFs to pick a live wallpaper from.</description>
+    </key>
+
+    <key name="live-wallpaper-muted" type="b">
+      <default>true</default>
+      <summary>Mute live wallpaper audio</summary>
+      <description>Whether audio playback is muted for the live wallpaper video.</description>
+    </key>
+
+    <key name="live-wallpaper-playback-rate" type="d">
+      <default>1.0</default>
+      <range min="0.1" max="4.0"/>
+      <summary>Live wallpaper playback speed</summary>
+      <description>Playback rate multiplier applied to the live wallpaper video.</description>
+    </key>
+
+    <key name="live-wallpaper-pause-on-battery" type="b">
+      <default>true</default>
+      <summary>Pause live wallpaper on battery</summary>
+      <description>Automatically pause video playback while the system is unplugged to save power.</description>
+    </key>
+
+    <key name="live-wallpaper-pause-when-fullscreen" type="b">
+      <default>true</default>
+      <summary>Pause live wallpaper when a window is fullscreen</summary>
+      <description>Automatically pause video playback while a window is fullscreen, since it would be hidden anyway.</description>
+    </key>
+
+    <key name="oled-protection-enabled" type="b">
+      <default>false</default>
+      <summary>Enable OLED burn-in protection</summary>
+      <description>Master switch for all OLED burn-in protection features.</description>
+    </key>
+
+    <key name="oled-pixel-shift-enabled" type="b">
+      <default>true</default>
+      <summary>Enable pixel shifting</summary>
+      <description>Periodically nudge the rendered background by a few pixels to avoid static burn-in.</description>
+    </key>
+
+    <key name="oled-pixel-shift-interval-seconds" type="u">
+      <default>60</default>
+      <summary>Pixel shift interval</summary>
+      <description>Number of seconds between each pixel-shift step.</description>
+    </key>
+
+    <key name="oled-pixel-shift-amount-px" type="u">
+      <default>3</default>
+      <range min="1" max="10"/>
+      <summary>Pixel shift amount</summary>
+      <description>Maximum distance, in pixels, the background is offset during pixel shifting.</description>
+    </key>
+
+    <key name="oled-dim-on-idle-enabled" type="b">
+      <default>true</default>
+      <summary>Dim background when idle</summary>
+      <description>Reduce background brightness after the system has been idle for a while.</description>
+    </key>
+
+    <key name="oled-dim-idle-delay-seconds" type="u">
+      <default>300</default>
+      <summary>Idle delay before dimming</summary>
+      <description>Number of seconds of inactivity before the background is dimmed.</description>
+    </key>
+
+    <key name="oled-dim-brightness" type="d">
+      <default>0.4</default>
+      <range min="0.0" max="0.9"/>
+      <summary>Dimmed brightness level</summary>
+      <description>Brightness multiplier applied to the background while dimmed (0 = black, 1 = full brightness).</description>
+    </key>
+
+    <key name="oled-force-rotation-enabled" type="b">
+      <default>true</default>
+      <summary>Force periodic wallpaper change</summary>
+      <description>Force a wallpaper change after the maximum static duration even if automatic rotation is otherwise disabled.</description>
+    </key>
+
+    <key name="oled-max-static-duration-seconds" type="u">
+      <default>14400</default>
+      <summary>Maximum static duration</summary>
+      <description>Maximum number of seconds a single wallpaper may remain on screen before OLED protection forces a change.</description>
+    </key>
+
+  </schema>
+</schemalist>
