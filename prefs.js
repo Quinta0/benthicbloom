@@ -7,11 +7,17 @@ import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Ex
 
 import {SettingsKey} from './lib/settingsKeys.js';
 import {checkGstreamerBaseAvailable, GSTREAMER_INSTALL_HINT} from './lib/gstreamerAvailability.js';
+import {listMediaFilesInFolders} from './lib/wallpaperSource.js';
 
 export default class BenthicBloomPreferences extends ExtensionPreferences {
     async fillPreferencesWindow(window) {
         const settings = this.getSettings();
         const gstreamerError = await checkGstreamerBaseAvailable().then(() => null, e => e.message ?? String(e));
+
+        // Bundled rather than relying on the system icon theme having these
+        // exact names — a missing symbolic icon otherwise renders as a
+        // blank/broken-image placeholder in the page switcher.
+        Gtk.IconTheme.get_for_display(window.get_display()).add_search_path(`${this.path}/icons`);
 
         window.set_default_size(640, 720);
         window.add(this._buildGeneralPage(settings));
@@ -42,7 +48,7 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
     // --- General page ------------------------------------------------
 
     _buildGeneralPage(settings) {
-        const page = new Adw.PreferencesPage({title: _('General'), icon_name: 'preferences-system-symbolic'});
+        const page = new Adw.PreferencesPage({title: _('General'), icon_name: 'bb-general-symbolic'});
 
         const behaviorGroup = new Adw.PreferencesGroup({title: _('Behavior')});
         page.add(behaviorGroup);
@@ -62,12 +68,8 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
         });
         page.add(foldersGroup);
 
-        this._folderList = new Gtk.ListBox({
-            selection_mode: Gtk.SelectionMode.NONE,
-            css_classes: ['boxed-list'],
-        });
-        foldersGroup.add(this._folderList);
-        this._refreshFolderList(settings);
+        const folderList = this._buildFolderListBox(settings, SettingsKey.WALLPAPER_FOLDERS, _('No folders added yet'));
+        foldersGroup.add(folderList);
 
         const addButton = new Gtk.Button({
             label: _('Add Folder…'),
@@ -75,23 +77,32 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
             margin_top: 6,
             css_classes: ['flat'],
         });
-        addButton.connect('clicked', () => this._pickFolder(settings));
+        addButton.connect('clicked', () => this._pickFolderForList(
+            settings, SettingsKey.WALLPAPER_FOLDERS, folderList, _('No folders added yet')));
         foldersGroup.add(addButton);
 
         return page;
     }
 
-    _refreshFolderList(settings) {
-        let child = this._folderList.get_first_child();
+    // --- Shared folder-list widgets (used by the General and Live Wallpaper pages) --
+
+    _buildFolderListBox(settings, key, emptyText, onChange) {
+        const listBox = new Gtk.ListBox({selection_mode: Gtk.SelectionMode.NONE, css_classes: ['boxed-list']});
+        this._refreshFolderListBox(listBox, settings, key, emptyText, onChange);
+        return listBox;
+    }
+
+    _refreshFolderListBox(listBox, settings, key, emptyText, onChange) {
+        let child = listBox.get_first_child();
         while (child) {
             const next = child.get_next_sibling();
-            this._folderList.remove(child);
+            listBox.remove(child);
             child = next;
         }
 
-        const folders = settings.get_strv(SettingsKey.WALLPAPER_FOLDERS);
+        const folders = settings.get_strv(key);
         if (folders.length === 0) {
-            this._folderList.append(new Adw.ActionRow({title: _('No folders added yet')}));
+            listBox.append(new Adw.ActionRow({title: emptyText}));
             return;
         }
 
@@ -103,27 +114,29 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
                 css_classes: ['flat'],
             });
             removeButton.connect('clicked', () => {
-                const current = settings.get_strv(SettingsKey.WALLPAPER_FOLDERS);
-                settings.set_strv(SettingsKey.WALLPAPER_FOLDERS, current.filter(f => f !== folder));
-                this._refreshFolderList(settings);
+                const current = settings.get_strv(key);
+                settings.set_strv(key, current.filter(f => f !== folder));
+                this._refreshFolderListBox(listBox, settings, key, emptyText, onChange);
+                onChange?.();
             });
             row.add_suffix(removeButton);
-            this._folderList.append(row);
+            listBox.append(row);
         }
     }
 
-    _pickFolder(settings) {
-        const dialog = new Gtk.FileDialog({title: _('Select Wallpaper Folder')});
-        dialog.select_folder(this._folderList.get_root(), null, (source, result) => {
+    _pickFolderForList(settings, key, listBox, emptyText, onChange) {
+        const dialog = new Gtk.FileDialog({title: _('Select Folder')});
+        dialog.select_folder(listBox.get_root(), null, (source, result) => {
             try {
                 const folder = dialog.select_folder_finish(result);
                 const path = folder.get_path();
                 if (!path)
                     return;
-                const current = settings.get_strv(SettingsKey.WALLPAPER_FOLDERS);
+                const current = settings.get_strv(key);
                 if (!current.includes(path)) {
-                    settings.set_strv(SettingsKey.WALLPAPER_FOLDERS, [...current, path]);
-                    this._refreshFolderList(settings);
+                    settings.set_strv(key, [...current, path]);
+                    this._refreshFolderListBox(listBox, settings, key, emptyText, onChange);
+                    onChange?.();
                 }
             } catch (e) {
                 // Dialog was dismissed; nothing to do.
@@ -134,7 +147,7 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
     // --- Rotation page -------------------------------------------------
 
     _buildRotationPage(settings) {
-        const page = new Adw.PreferencesPage({title: _('Rotation'), icon_name: 'media-playlist-shuffle-symbolic'});
+        const page = new Adw.PreferencesPage({title: _('Rotation'), icon_name: 'bb-rotation-symbolic'});
 
         const group = new Adw.PreferencesGroup({title: _('Automatic Rotation')});
         page.add(group);
@@ -173,7 +186,7 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
     // --- Live wallpaper page --------------------------------------------
 
     _buildLiveWallpaperPage(settings, gstreamerError) {
-        const page = new Adw.PreferencesPage({title: _('Live Wallpaper'), icon_name: 'video-x-generic-symbolic'});
+        const page = new Adw.PreferencesPage({title: _('Live Wallpaper'), icon_name: 'bb-live-wallpaper-symbolic'});
 
         if (gstreamerError) {
             const warningGroup = new Adw.PreferencesGroup();
@@ -229,6 +242,7 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
                     const path = file.get_path();
                     settings.set_string(SettingsKey.LIVE_WALLPAPER_PATH, path);
                     fileRow.subtitle = path;
+                    this._refreshLiveMediaList(settings, fileRow);
                 } catch (e) {
                     // Dialog was dismissed; nothing to do.
                 }
@@ -251,6 +265,36 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
             value => settings.set_double(SettingsKey.LIVE_WALLPAPER_PLAYBACK_RATE, value));
         group.add(rateRow);
 
+        const foldersGroup = new Adw.PreferencesGroup({
+            title: _('Wallpaper Folders'),
+            description: _('Videos and animated GIFs found directly inside these folders can be picked below'),
+        });
+        page.add(foldersGroup);
+
+        const mediaGroup = new Adw.PreferencesGroup({title: _('Available Media')});
+        page.add(mediaGroup);
+        this._liveMediaList = new Gtk.ListBox({selection_mode: Gtk.SelectionMode.NONE, css_classes: ['boxed-list']});
+        mediaGroup.add(this._liveMediaList);
+        this._liveMediaGeneration = 0;
+
+        const refreshMedia = () => this._refreshLiveMediaList(settings, fileRow);
+
+        const liveFolderList = this._buildFolderListBox(
+            settings, SettingsKey.LIVE_WALLPAPER_FOLDERS, _('No folders added yet'), refreshMedia);
+        foldersGroup.add(liveFolderList);
+
+        const addFolderButton = new Gtk.Button({
+            label: _('Add Folder…'),
+            halign: Gtk.Align.START,
+            margin_top: 6,
+            css_classes: ['flat'],
+        });
+        addFolderButton.connect('clicked', () => this._pickFolderForList(
+            settings, SettingsKey.LIVE_WALLPAPER_FOLDERS, liveFolderList, _('No folders added yet'), refreshMedia));
+        foldersGroup.add(addFolderButton);
+
+        refreshMedia();
+
         const powerGroup = new Adw.PreferencesGroup({title: _('Power Saving')});
         page.add(powerGroup);
         powerGroup.add(this._switchRow(
@@ -267,16 +311,73 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
             fileRow.sensitive = false;
             muteRow.sensitive = false;
             rateRow.sensitive = false;
+            foldersGroup.sensitive = false;
+            mediaGroup.sensitive = false;
             powerGroup.sensitive = false;
         }
 
         return page;
     }
 
+    /** Re-scans the configured live wallpaper folders and repopulates the "Available Media" list. */
+    _refreshLiveMediaList(settings, fileRow) {
+        const listBox = this._liveMediaList;
+        const generation = ++this._liveMediaGeneration;
+
+        let child = listBox.get_first_child();
+        while (child) {
+            const next = child.get_next_sibling();
+            listBox.remove(child);
+            child = next;
+        }
+
+        const folders = settings.get_strv(SettingsKey.LIVE_WALLPAPER_FOLDERS);
+        if (folders.length === 0) {
+            listBox.append(new Adw.ActionRow({title: _('Add a folder above to browse its videos and GIFs')}));
+            return;
+        }
+
+        listBox.append(new Adw.ActionRow({title: _('Scanning…')}));
+
+        listMediaFilesInFolders(folders).then(paths => {
+            if (generation !== this._liveMediaGeneration)
+                return; // A folder changed again before this scan finished; a newer one is in flight.
+
+            let c = listBox.get_first_child();
+            while (c) {
+                const next = c.get_next_sibling();
+                listBox.remove(c);
+                c = next;
+            }
+
+            if (paths.length === 0) {
+                listBox.append(new Adw.ActionRow({title: _('No videos or GIFs found in those folders')}));
+                return;
+            }
+
+            const currentPath = settings.get_string(SettingsKey.LIVE_WALLPAPER_PATH);
+            for (const path of paths) {
+                const row = new Adw.ActionRow({
+                    title: Gio.File.new_for_path(path).get_basename(),
+                    subtitle: path,
+                    activatable: true,
+                });
+                if (path === currentPath)
+                    row.add_suffix(new Gtk.Image({icon_name: 'object-select-symbolic'}));
+                row.connect('activated', () => {
+                    settings.set_string(SettingsKey.LIVE_WALLPAPER_PATH, path);
+                    fileRow.subtitle = path;
+                    this._refreshLiveMediaList(settings, fileRow);
+                });
+                listBox.append(row);
+            }
+        }).catch(() => {});
+    }
+
     // --- OLED protection page --------------------------------------------
 
     _buildOledPage(settings) {
-        const page = new Adw.PreferencesPage({title: _('OLED Protection'), icon_name: 'weather-clear-night-symbolic'});
+        const page = new Adw.PreferencesPage({title: _('OLED Protection'), icon_name: 'bb-oled-symbolic'});
 
         const group = new Adw.PreferencesGroup({
             title: _('Burn-in Protection'),
@@ -335,7 +436,7 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
     // --- About page -----------------------------------------------------
 
     _buildAboutPage() {
-        const page = new Adw.PreferencesPage({title: _('About'), icon_name: 'help-about-symbolic'});
+        const page = new Adw.PreferencesPage({title: _('About'), icon_name: 'bb-about-symbolic'});
         const group = new Adw.PreferencesGroup();
         page.add(group);
 

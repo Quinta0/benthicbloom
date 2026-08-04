@@ -81,8 +81,8 @@ gnome-extensions prefs benthicbloom@quinta0.github.io
   logging, and the folders scanned for wallpapers.
 - **Rotation** — enable/disable, interval, shuffle vs. sequential order,
   and crossfade transition settings.
-- **Live Wallpaper** — enable/disable, video file, mute, playback speed,
-  and power-saving pause behavior.
+- **Live Wallpaper** — enable/disable, video file, source folders to pick
+  a video/GIF from, mute, playback speed, and power-saving pause behavior.
 - **OLED Protection** — master switch plus independent controls for
   pixel shifting, idle dimming, and forced periodic rotation.
 
@@ -99,6 +99,7 @@ lib/rotationManager.js    Timer-driven wallpaper rotation + crossfade overlay
 lib/liveWallpaper.js      GStreamer video playback rendered onto a Clutter actor
 lib/oledProtection.js     Pixel shifting, idle dimming, forced rotation
 lib/indicator.js          Top-bar quick-access menu
+icons/                     Bundled symbolic icons for the preferences window
 schemas/                  GSettings schema
 ```
 

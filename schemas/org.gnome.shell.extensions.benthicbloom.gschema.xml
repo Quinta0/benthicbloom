@@ -79,6 +79,12 @@
       <description>Path to the video or animated GIF file used as the live wallpaper.</description>
     </key>
 
+    <key name="live-wallpaper-folders" type="as">
+      <default>[]</default>
+      <summary>Live wallpaper source folders</summary>
+      <description>List of folder paths scanned for videos and animated GIFs to pick a live wallpaper from.</description>
+    </key>
+
     <key name="live-wallpaper-muted" type="b">
       <default>true</default>
       <summary>Mute live wallpaper audio</summary>
