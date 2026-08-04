@@ -70,13 +70,13 @@
     <key name="live-wallpaper-enabled" type="b">
       <default>false</default>
       <summary>Enable live wallpaper</summary>
-      <description>Whether a video is played as an animated desktop background instead of a static image.</description>
+      <description>Whether a video or animated GIF is played as an animated desktop background instead of a static image.</description>
     </key>
 
     <key name="live-wallpaper-path" type="s">
       <default>""</default>
-      <summary>Live wallpaper video file</summary>
-      <description>Path to the video file used as the live wallpaper.</description>
+      <summary>Live wallpaper media file</summary>
+      <description>Path to the video or animated GIF file used as the live wallpaper.</description>
     </key>
 
     <key name="live-wallpaper-muted" type="b">

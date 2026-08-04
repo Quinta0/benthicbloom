@@ -176,8 +176,9 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
         const group = new Adw.PreferencesGroup({
             title: _('Video Wallpaper'),
             description: _(
-                'Play a looping video as your desktop background instead of a static image. ' +
-                'Requires GStreamer (with its "good" and "base" plugin sets) to be installed on your system.'),
+                'Play a looping video or animated GIF as your desktop background instead of a static image. ' +
+                'Requires GStreamer (with its "good" and "base" plugin sets, which provide GIF decoding) ' +
+                'to be installed on your system.'),
         });
         page.add(group);
         group.add(this._switchRow(
@@ -185,17 +186,26 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
             _('Enable Live Wallpaper'), _('Overrides the static wallpaper while active')));
 
         const fileRow = new Adw.ActionRow({
-            title: _('Video File'),
+            title: _('Video / GIF File'),
             subtitle: settings.get_string(SettingsKey.LIVE_WALLPAPER_PATH) || _('None selected'),
         });
         const chooseButton = new Gtk.Button({label: _('Choose…'), valign: Gtk.Align.CENTER, css_classes: ['flat']});
         chooseButton.connect('clicked', () => {
-            const dialog = new Gtk.FileDialog({title: _('Select Wallpaper Video')});
-            const filter = new Gtk.FileFilter();
-            filter.add_mime_type('video/*');
+            const dialog = new Gtk.FileDialog({title: _('Select Wallpaper Video or GIF')});
+
+            const mediaFilter = new Gtk.FileFilter({name: _('Videos and animated GIFs')});
+            mediaFilter.add_mime_type('video/*');
+            mediaFilter.add_mime_type('image/gif');
+            mediaFilter.add_pattern('*.gif');
+
+            const allFilter = new Gtk.FileFilter({name: _('All files')});
+            allFilter.add_pattern('*');
+
             const filterList = new Gio.ListStore({item_type: Gtk.FileFilter});
-            filterList.append(filter);
+            filterList.append(mediaFilter);
+            filterList.append(allFilter);
             dialog.filters = filterList;
+            dialog.default_filter = mediaFilter;
 
             dialog.open(fileRow.get_root(), null, (source, result) => {
                 try {

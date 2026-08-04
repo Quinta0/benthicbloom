@@ -10,11 +10,11 @@ protection against OLED burn-in.
   through the images inside them on a timer, in sequential or shuffled
   order, with an optional crossfade between changes. The chosen wallpaper
   can also be applied to the lock screen.
-- **Live wallpapers** — play a looping video file as your desktop
-  background. Frames are decoded with GStreamer and rendered directly by
-  GNOME Shell's own Clutter stage (no external, incompatible Clutter
-  build involved). Playback can automatically pause on battery power or
-  while a window is fullscreen.
+- **Live wallpapers** — play a looping video *or animated GIF* as your
+  desktop background. Frames are decoded with GStreamer and rendered
+  directly by GNOME Shell's own Clutter stage (no external, incompatible
+  Clutter build involved). Playback can automatically pause on battery
+  power or while a window is fullscreen.
 - **OLED burn-in protection** — three independent, individually toggled
   techniques:
   - *Pixel shifting*: nudges the background a few pixels on a slow drift
@@ -34,9 +34,9 @@ protection against OLED burn-in.
 - GNOME Shell 50.
 - For live wallpapers: GStreamer with its `good` and `base` plugin sets
   (e.g. `gstreamer1.0-plugins-good` and `gstreamer1.0-plugins-base`, or
-  your distribution's equivalent). If these aren't installed, the live
-  wallpaper toggle stays disabled and BenthicBloom's other features work
-  normally.
+  your distribution's equivalent) — the `good` set is also what provides
+  animated GIF decoding. If these aren't installed, the live wallpaper
+  toggle stays disabled and BenthicBloom's other features work normally.
 
 ## Installation
 
