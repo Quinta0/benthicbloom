@@ -14,7 +14,19 @@ export default class BenthicBloomExtension extends Extension {
         this._logger = new Logger(this._settings, this.metadata.name);
 
         this._rotationManager = new RotationManager(this._settings, this._logger);
-        this._liveWallpaperManager = new LiveWallpaperManager(this._settings, this._logger);
+        this._liveWallpaperManager = new LiveWallpaperManager(this._settings, this._logger, {
+            // Rotation changes the static picture-uri GSettings key, which
+            // makes the shell repaint its own background actor on top of
+            // the live wallpaper's. Suspend rotation while a live
+            // wallpaper is actually on screen, independent of any
+            // user-initiated pause.
+            onActiveChanged: active => {
+                if (active)
+                    this._rotationManager.suspend();
+                else
+                    this._rotationManager.unsuspend();
+            },
+        });
         this._oledProtectionManager = new OledProtectionManager(this._settings, this._logger, {
             forceNextWallpaper: maxSeconds => {
                 if (this._rotationManager.secondsSinceLastChange >= maxSeconds) {

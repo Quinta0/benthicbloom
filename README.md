@@ -14,7 +14,10 @@ protection against OLED burn-in.
   desktop background. Frames are decoded with GStreamer and rendered
   directly by GNOME Shell's own Clutter stage (no external, incompatible
   Clutter build involved). Playback can automatically pause on battery
-  power or while a window is fullscreen.
+  power or while a window is fullscreen. Automatic rotation is
+  automatically suspended while a live wallpaper is actually on screen
+  (and resumes afterward), since changing the static wallpaper would
+  otherwise repaint over the video.
 - **OLED burn-in protection** — three independent, individually toggled
   techniques:
   - *Pixel shifting*: nudges the background a few pixels on a slow drift
