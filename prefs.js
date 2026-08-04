@@ -6,12 +6,12 @@ import Gdk from 'gi://Gdk';
 import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import {SettingsKey} from './lib/settingsKeys.js';
-import {loadGstreamerModules, GSTREAMER_INSTALL_HINT} from './lib/gstreamerAvailability.js';
+import {checkGstreamerBaseAvailable, GSTREAMER_INSTALL_HINT} from './lib/gstreamerAvailability.js';
 
 export default class BenthicBloomPreferences extends ExtensionPreferences {
     async fillPreferencesWindow(window) {
         const settings = this.getSettings();
-        const gstreamerError = await loadGstreamerModules().then(() => null, e => e.message ?? String(e));
+        const gstreamerError = await checkGstreamerBaseAvailable().then(() => null, e => e.message ?? String(e));
 
         window.set_default_size(640, 720);
         window.add(this._buildGeneralPage(settings));
@@ -192,7 +192,9 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
             description: _(
                 'Play a looping video or animated GIF as your desktop background instead of a static image. ' +
                 'Requires GStreamer (with its "good" and "base" plugin sets, which provide GIF decoding) ' +
-                'to be installed on your system.'),
+                'to be installed on your system. Note: this page can only detect GStreamer being ' +
+                'completely missing — the rendering path it also needs is private to gnome-shell and can’t ' +
+                'be checked from here, so the absence of a warning below isn’t a full guarantee.'),
         });
         page.add(group);
         group.add(this._switchRow(
