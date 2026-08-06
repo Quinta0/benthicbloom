@@ -9,6 +9,25 @@ import {SettingsKey} from './lib/settingsKeys.js';
 import {checkGstreamerBaseAvailable, GSTREAMER_INSTALL_HINT} from './lib/gstreamerAvailability.js';
 import {listMediaFilesInFolders} from './lib/wallpaperSource.js';
 
+const BACKGROUND_SCHEMA = 'org.gnome.desktop.background';
+
+// GNOME's own picture-options values, exposed here so wallpaper fill mode
+// can be controlled without inventing a parallel setting of our own.
+// Built lazily (not at module top level) because gettext can only be
+// called once the extension is registered, which hasn't happened yet
+// while this module is still being evaluated on import.
+function pictureOptions() {
+    return [
+        {value: 'zoom', label: _('Fill (Crop to Zoom)')},
+        {value: 'scaled', label: _('Fit (No Cropping)')},
+        {value: 'stretched', label: _('Stretch')},
+        {value: 'centered', label: _('Centered')},
+        {value: 'wallpaper', label: _('Tiled')},
+        {value: 'spanned', label: _('Spanned Across Monitors')},
+        {value: 'none', label: _('None (Background Color Only)')},
+    ];
+}
+
 export default class BenthicBloomPreferences extends ExtensionPreferences {
     async fillPreferencesWindow(window) {
         const settings = this.getSettings();
@@ -19,8 +38,10 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
         // blank/broken-image placeholder in the page switcher.
         Gtk.IconTheme.get_for_display(window.get_display()).add_search_path(`${this.path}/icons`);
 
+        const backgroundSettings = new Gio.Settings({schema_id: BACKGROUND_SCHEMA});
+
         window.set_default_size(640, 720);
-        window.add(this._buildGeneralPage(settings));
+        window.add(this._buildGeneralPage(settings, backgroundSettings));
         window.add(this._buildRotationPage(settings));
         window.add(this._buildLiveWallpaperPage(settings, gstreamerError));
         window.add(this._buildOledPage(settings));
@@ -47,7 +68,7 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
 
     // --- General page ------------------------------------------------
 
-    _buildGeneralPage(settings) {
+    _buildGeneralPage(settings, backgroundSettings) {
         const page = new Adw.PreferencesPage({title: _('General'), icon_name: 'bb-general-symbolic'});
 
         const behaviorGroup = new Adw.PreferencesGroup({title: _('Behavior')});
@@ -62,6 +83,23 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
             settings, SettingsKey.DEBUG_LOGGING,
             _('Debug Logging'), _('Print verbose diagnostics to the system log (journalctl -f)')));
 
+        const displayGroup = new Adw.PreferencesGroup({
+            title: _('Display'),
+            description: _('How the wallpaper image is fitted to your screen, e.g. cropped to fill it'),
+        });
+        page.add(displayGroup);
+        const pictureOptionsList = pictureOptions();
+        const fillModeRow = new Adw.ComboRow({
+            title: _('Fill Mode'),
+            model: new Gtk.StringList({strings: pictureOptionsList.map(o => o.label)}),
+        });
+        const currentOption = backgroundSettings.get_string('picture-options');
+        fillModeRow.selected = Math.max(0, pictureOptionsList.findIndex(o => o.value === currentOption));
+        fillModeRow.connect('notify::selected', () => {
+            backgroundSettings.set_string('picture-options', pictureOptionsList[fillModeRow.selected].value);
+        });
+        displayGroup.add(fillModeRow);
+
         const foldersGroup = new Adw.PreferencesGroup({
             title: _('Wallpaper Folders'),
             description: _('Images found directly inside these folders are used for rotation'),
@@ -71,15 +109,18 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
         const folderList = this._buildFolderListBox(settings, SettingsKey.WALLPAPER_FOLDERS, _('No folders added yet'));
         foldersGroup.add(folderList);
 
-        const addButton = new Gtk.Button({
-            label: _('Add Folder…'),
-            halign: Gtk.Align.START,
-            margin_top: 6,
-            css_classes: ['flat'],
-        });
+        const buttonRow = new Gtk.Box({orientation: Gtk.Orientation.HORIZONTAL, spacing: 6, margin_top: 6});
+        foldersGroup.add(buttonRow);
+
+        const addButton = new Gtk.Button({label: _('Add Folder…'), css_classes: ['flat']});
         addButton.connect('clicked', () => this._pickFolderForList(
             settings, SettingsKey.WALLPAPER_FOLDERS, folderList, _('No folders added yet')));
-        foldersGroup.add(addButton);
+        buttonRow.append(addButton);
+
+        const refreshButton = new Gtk.Button({label: _('Refresh'), css_classes: ['flat']});
+        refreshButton.connect('clicked', () => settings.set_uint(
+            SettingsKey.WALLPAPER_RESCAN_REQUEST, settings.get_uint(SettingsKey.WALLPAPER_RESCAN_REQUEST) + 1));
+        buttonRow.append(refreshButton);
 
         return page;
     }
@@ -174,7 +215,17 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
         page.add(transitionGroup);
         transitionGroup.add(this._switchRow(
             settings, SettingsKey.TRANSITION_ENABLED,
-            _('Crossfade'), _('Smoothly fade between wallpapers instead of switching instantly')));
+            _('Enable Transition'), _('Play an animation between wallpapers instead of switching instantly')));
+
+        const styles = ['fade', 'slide', 'zoom', 'random'];
+        const styleLabels = [_('Fade'), _('Slide'), _('Zoom'), _('Random')];
+        const styleRow = new Adw.ComboRow({title: _('Style'), model: new Gtk.StringList({strings: styleLabels})});
+        styleRow.selected = Math.max(0, styles.indexOf(settings.get_string(SettingsKey.TRANSITION_STYLE)));
+        styleRow.connect('notify::selected', () => {
+            settings.set_string(SettingsKey.TRANSITION_STYLE, styles[styleRow.selected]);
+        });
+        transitionGroup.add(styleRow);
+
         transitionGroup.add(this._spinRow(
             {title: _('Fade Duration'), subtitle: _('Milliseconds'), lower: 200, upper: 5000, step: 100, page: 500},
             () => settings.get_uint(SettingsKey.TRANSITION_DURATION_MS),
@@ -251,6 +302,19 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
         fileRow.add_suffix(chooseButton);
         group.add(fileRow);
 
+        const liveDisplayModes = ['fit', 'fill', 'stretch', 'center'];
+        const liveDisplayLabels = [_('Fit (Letterboxed)'), _('Fill (Crop to Cover)'), _('Stretch'), _('Center')];
+        const displayModeRow = new Adw.ComboRow({
+            title: _('Display Mode'),
+            model: new Gtk.StringList({strings: liveDisplayLabels}),
+        });
+        displayModeRow.selected = Math.max(
+            0, liveDisplayModes.indexOf(settings.get_string(SettingsKey.LIVE_WALLPAPER_DISPLAY_MODE)));
+        displayModeRow.connect('notify::selected', () => {
+            settings.set_string(SettingsKey.LIVE_WALLPAPER_DISPLAY_MODE, liveDisplayModes[displayModeRow.selected]);
+        });
+        group.add(displayModeRow);
+
         const muteRow = this._switchRow(
             settings, SettingsKey.LIVE_WALLPAPER_MUTED,
             _('Mute Audio'), _('Play video wallpapers without sound'));
@@ -283,15 +347,17 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
             settings, SettingsKey.LIVE_WALLPAPER_FOLDERS, _('No folders added yet'), refreshMedia);
         foldersGroup.add(liveFolderList);
 
-        const addFolderButton = new Gtk.Button({
-            label: _('Add Folder…'),
-            halign: Gtk.Align.START,
-            margin_top: 6,
-            css_classes: ['flat'],
-        });
+        const liveButtonRow = new Gtk.Box({orientation: Gtk.Orientation.HORIZONTAL, spacing: 6, margin_top: 6});
+        foldersGroup.add(liveButtonRow);
+
+        const addFolderButton = new Gtk.Button({label: _('Add Folder…'), css_classes: ['flat']});
         addFolderButton.connect('clicked', () => this._pickFolderForList(
             settings, SettingsKey.LIVE_WALLPAPER_FOLDERS, liveFolderList, _('No folders added yet'), refreshMedia));
-        foldersGroup.add(addFolderButton);
+        liveButtonRow.append(addFolderButton);
+
+        const refreshMediaButton = new Gtk.Button({label: _('Refresh'), css_classes: ['flat']});
+        refreshMediaButton.connect('clicked', refreshMedia);
+        liveButtonRow.append(refreshMediaButton);
 
         refreshMedia();
 
@@ -309,6 +375,7 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
         // GStreamer is actually driving playback is greyed out.
         if (gstreamerError) {
             fileRow.sensitive = false;
+            displayModeRow.sensitive = false;
             muteRow.sensitive = false;
             rateRow.sensitive = false;
             foldersGroup.sensitive = false;
@@ -394,9 +461,12 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
             settings, SettingsKey.OLED_PIXEL_SHIFT_ENABLED,
             _('Enable Pixel Shifting'), _('Periodically nudge the background by a few pixels')));
         shiftGroup.add(this._spinRow(
-            {title: _('Shift Interval'), subtitle: _('Seconds between each shift step'), lower: 10, upper: 600, step: 5, page: 30},
-            () => settings.get_uint(SettingsKey.OLED_PIXEL_SHIFT_INTERVAL_SECONDS),
-            value => settings.set_uint(SettingsKey.OLED_PIXEL_SHIFT_INTERVAL_SECONDS, Math.round(value))));
+            {
+                title: _('Shift Interval'), subtitle: _('Minutes between each shift step'),
+                lower: 0.5, upper: 10, step: 0.5, page: 1, digits: 1,
+            },
+            () => settings.get_uint(SettingsKey.OLED_PIXEL_SHIFT_INTERVAL_SECONDS) / 60,
+            value => settings.set_uint(SettingsKey.OLED_PIXEL_SHIFT_INTERVAL_SECONDS, Math.round(value * 60))));
         shiftGroup.add(this._spinRow(
             {title: _('Shift Amount'), subtitle: _('Pixels'), lower: 1, upper: 10, step: 1, page: 1},
             () => settings.get_uint(SettingsKey.OLED_PIXEL_SHIFT_AMOUNT_PX),
@@ -408,9 +478,9 @@ export default class BenthicBloomPreferences extends ExtensionPreferences {
             settings, SettingsKey.OLED_DIM_ON_IDLE_ENABLED,
             _('Dim When Idle'), _('Lower brightness after a period of inactivity')));
         dimGroup.add(this._spinRow(
-            {title: _('Idle Delay'), subtitle: _('Seconds of inactivity before dimming'), lower: 10, upper: 3600, step: 10, page: 60},
-            () => settings.get_uint(SettingsKey.OLED_DIM_IDLE_DELAY_SECONDS),
-            value => settings.set_uint(SettingsKey.OLED_DIM_IDLE_DELAY_SECONDS, Math.round(value))));
+            {title: _('Idle Delay'), subtitle: _('Minutes of inactivity before dimming'), lower: 1, upper: 60, step: 1, page: 5},
+            () => settings.get_uint(SettingsKey.OLED_DIM_IDLE_DELAY_SECONDS) / 60,
+            value => settings.set_uint(SettingsKey.OLED_DIM_IDLE_DELAY_SECONDS, Math.round(value * 60))));
         dimGroup.add(this._spinRow(
             {
                 title: _('Dimmed Brightness'), subtitle: _('0.0 = black, 0.9 = barely dimmed'),

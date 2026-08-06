@@ -21,6 +21,12 @@
       <description>List of folder paths scanned for wallpaper images.</description>
     </key>
 
+    <key name="wallpaper-rescan-request" type="u">
+      <default>0</default>
+      <summary>Wallpaper folder rescan request</summary>
+      <description>Internal counter bumped by the preferences UI to ask the running extension to rescan wallpaper folders for new files.</description>
+    </key>
+
     <key name="apply-to-lock-screen" type="b">
       <default>true</default>
       <summary>Apply wallpaper to lock screen</summary>
@@ -67,6 +73,18 @@
       <description>Duration, in milliseconds, of the crossfade animation between wallpapers.</description>
     </key>
 
+    <key name="transition-style" type="s">
+      <choices>
+        <choice value="fade"/>
+        <choice value="slide"/>
+        <choice value="zoom"/>
+        <choice value="random"/>
+      </choices>
+      <default>"fade"</default>
+      <summary>Transition style</summary>
+      <description>Visual effect used when the wallpaper changes.</description>
+    </key>
+
     <key name="live-wallpaper-enabled" type="b">
       <default>false</default>
       <summary>Enable live wallpaper</summary>
@@ -83,6 +101,18 @@
       <default>[]</default>
       <summary>Live wallpaper source folders</summary>
       <description>List of folder paths scanned for videos and animated GIFs to pick a live wallpaper from.</description>
+    </key>
+
+    <key name="live-wallpaper-display-mode" type="s">
+      <choices>
+        <choice value="fit"/>
+        <choice value="fill"/>
+        <choice value="stretch"/>
+        <choice value="center"/>
+      </choices>
+      <default>"fit"</default>
+      <summary>Live wallpaper display mode</summary>
+      <description>How the video/GIF is fitted to the screen: fit (letterboxed), fill (cropped to cover), stretch (distorted to fill) or center (original size).</description>
     </key>
 
     <key name="live-wallpaper-muted" type="b">
