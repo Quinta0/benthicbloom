@@ -1,5 +1,9 @@
 # BenthicBloom
 
+
+https://github.com/user-attachments/assets/cf95d723-7c0d-44b1-9b8f-01e03f88850b
+
+
 A GNOME Shell 50 extension that rotates your wallpaper, supports looping
 video (live) wallpapers, and protects OLED displays from burn-in.
 
